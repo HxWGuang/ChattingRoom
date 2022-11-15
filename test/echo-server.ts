@@ -1,9 +1,9 @@
 const net = require("net");
 
-const host = "localhost";
+const host = "127.0.0.1";
 const port = 3000;
 
-net.createServer(socket => {
+const server = net.createServer(socket => {
     console.log(`connected: ${socket.remoteAddress}:${socket.remotePort}`);
 
     socket.on('data', (data) => {
@@ -16,5 +16,6 @@ net.createServer(socket => {
         console.log(`connection closed: ${socket.remoteAddress}:${socket.remotePort}`);
     });
 }).listen(port,host,() => {
-    console.log(`Server listening on ${host}:${port}`);
+    // console.log(`Server listening on ${host}:${port}`);
+    console.log(`Server listening on`, server.address());
 })
