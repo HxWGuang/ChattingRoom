@@ -29,17 +29,22 @@ const node_process_1 = require("node:process");
 const serverInfo_1 = require("./entity/serverInfo");
 const rl = readline.createInterface({ input: node_process_1.stdin, output: node_process_1.stdout });
 let name;
-rl.question('请输入用户名:\n', (answer) => {
-    if (answer.length <= 0) {
+let client = new net.Socket();
+client.setEncoding('utf-8');
+console.info('请输入用户名:');
+rl.on('line', (input) => {
+    if (input.length <= 0) {
         console.error("用户名不能为空！请重新输入!");
     }
     else {
-        name = answer;
+        name = input;
         rl.close();
+        client.connect(serverInfo_1.serverInfo.port, serverInfo_1.serverInfo.host, () => {
+            console.info(`已连接到${client.remoteAddress}:${client.remotePort}`);
+            client.write(`login_name ${name}`);
+        });
     }
 });
-let client = new net.Socket();
-client.connect(serverInfo_1.serverInfo.port, serverInfo_1.serverInfo.host, () => {
-    // client.write(name);
-    console.log(name);
+client.on('data', (data) => {
+    console.info(`${data}`);
 });
