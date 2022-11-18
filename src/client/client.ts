@@ -1,7 +1,7 @@
 import * as net from 'node:net';
 import * as readline from 'node:readline';
 import {stdin as input, stdout as output} from 'node:process';
-import {clientInfo, socket, serverInfo, eCommandType} from "./entity/defineType";
+import {clientInfo, socket, serverInfo, eCommandType} from "../share/entity/defineType";
 
 const rl = readline.createInterface({input, output});
 
@@ -27,8 +27,6 @@ function onConnection(socket: net.Socket) {
     socket.write(`${eCommandType.login} ${username}`);
 
     rl.on('line', (input) => {
-        console.log('input =', input);
-
         if (input === eCommandType.leave) {
             socket.write(eCommandType.leave);
             socket.setTimeout(1000);

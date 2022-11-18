@@ -1,9 +1,14 @@
 import * as net from "node:net";
-import {stdout as output} from 'node:process';
-import {eCommandType, serverInfo} from "./entity/defineType";
+import {stdin as input, stdout as output} from 'node:process';
+import {eCommandType, serverInfo} from "../share/entity/defineType";
+import * as message from "../share/entity/msg";
+import readline from "node:readline";
+
+const rl = readline.createInterface({input, output});
 
 // let sockets: net.Socket[];
 let userMapping = new Map<net.Socket, string>();
+let line = 0;
 
 let server = net.createServer(onConnection).listen(serverInfo.port, serverInfo.host, () => {
     console.log('正在监听',server.address());
@@ -40,16 +45,22 @@ function handleData(data: string, socket: net.Socket) {
         case eCommandType.login: {
             let name = getCmdValue(data);
             userMapping.set(socket, name);
-            broadcast(socket, `${name}加入聊天室`);
+            broadcast(socket, `${name} 加入聊天室`);
             break;
         }
         case eCommandType.leave: {
-            broadcast(socket, `${name} 已离开聊天室`);
+            broadcast(socket, `${name} 离开聊天室`);
             break;
         }
         case eCommandType.say: {
             let msg = getCmdValue(data);
-            broadcast(socket, `${name} => ${msg}`);
+            // broadcast(socket, `${name} => ${msg}`);
+            broadcast(socket, new message.chat().msgStr(msg, name, ++line));
+            break;
+        }
+        case eCommandType.reply: {
+
+            break;
         }
     }
 }
