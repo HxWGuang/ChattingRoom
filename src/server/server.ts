@@ -1,12 +1,14 @@
 import * as net from "node:net";
 import {stdin as input, stdout as output} from 'node:process';
 import {eCommandType, serverInfo} from "../share/entity/defineType";
-import * as message from "../share/entity/msg";
+import {chatMsg, replyMsg, serverMsg} from "../share/entity/msg";
 import readline from "node:readline";
 
 const rl = readline.createInterface({input, output});
+const chatMsgIns = new chatMsg();
+const serMsgIns = new serverMsg();
+const reMsgIns = new replyMsg();
 
-// let sockets: net.Socket[];
 let userMapping = new Map<net.Socket, string>();
 let line = 0;
 
@@ -38,49 +40,53 @@ function handleData(data: string, socket: net.Socket) {
     let cmd = getCmdKey(data) as eCommandType;
     let name = userMapping.get(socket);
 
-    console.info(`已收到消息：${name} => ${data}`);
+    console.info(`[debug] 已收到消息：${name} => ${data}`);
     console.log('解析出cmd =', cmd);
 
     switch (cmd) {
         case eCommandType.login: {
             let name = getCmdValue(data);
             userMapping.set(socket, name);
-            broadcast(socket, `${name} 加入聊天室`);
+            broadcast(serMsgIns.msgStr(`已加入聊天室`, name));
             break;
         }
         case eCommandType.leave: {
-            broadcast(socket, `${name} 离开聊天室`);
+            broadcast(serMsgIns.msgStr(`已离开聊天室`, name), socket);
             break;
         }
         case eCommandType.say: {
             let msg = getCmdValue(data);
-            // broadcast(socket, `${name} => ${msg}`);
-            broadcast(socket, new message.chat().msgStr(msg, name, ++line));
+            broadcast(chatMsgIns.msgStr(msg, name), socket);
             break;
         }
         case eCommandType.reply: {
-
+            let reMsg = getCmdValue(data);
+            broadcast(reMsgIns.msgStr(reMsg, name), socket);
             break;
         }
     }
 }
 
-function getCmdKey(cmd: string) {
-    return cmd.split(' ')[0];
+function getCmdKey(data: string) {
+    return data.split(' ')[0];
 }
-function getCmdValue(cmd: string) {
-    return cmd.split(' ')[1];
+function getCmdValue(data: string) {
+    let firstSpace = data.indexOf(' ');
+    return data.slice(firstSpace + 1);
 }
 
-function broadcast(from: net.Socket, msg: string) {
+function broadcast(msg: string, from?: net.Socket) {
     if (userMapping.size <= 0) {
         console.info('聊天室内没有用户！');
         return;
     } else {
         userMapping.forEach((name,socket) => {
-            if (socket === from) return;
-
-            socket.write(msg);
+            if (from === undefined) {
+                socket.write(msg);
+            } else {
+                if (from === socket) return;
+                socket.write(msg);
+            }
         });
         console.info(`已广播消息：${msg}`);
     }

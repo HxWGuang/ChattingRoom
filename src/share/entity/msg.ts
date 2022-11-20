@@ -1,16 +1,18 @@
+import {eMsgType as msgType} from "./defineType";
+
 interface msgInfo {
     prefix: string;
 }
 
-class msg {
-    protected prefix = '';
-    protected msgStr(data: string, from: string | undefined): string {
-        return `${this.prefix} ${from} ${data}`;
-    };
+abstract class msg implements msgInfo{
+     prefix = '';
+     public msgStr(data: string, from: string | undefined): string {
+         return `${this.prefix} ${from} => ${data}`;
+     };
 }
 
-export class chat extends msg{
-    readonly prefix = '[chat]';
+export class chatMsg extends msg{
+    prefix = '[chat]';
 
     public msgStr(data: string, from: string | undefined, line?: number): string {
         if (line === undefined) {
@@ -21,12 +23,20 @@ export class chat extends msg{
     }
 }
 
-export let broadcast: msgInfo = {
-    prefix: '[server]',
+export class replyMsg extends msg {
+    prefix = '[reply]';
 }
 
-export class log {
-    static broadcastInfo(from: string, data: string) {
-        console.log(`${broadcast.prefix} ${from} => ${data}`);
-    }
+export class serverMsg extends chatMsg {
+    prefix = '[server]';
 }
+
+// export let broadcast: msgInfo = {
+//     prefix: '[server]',
+// }
+//
+// export class log {
+//     static broadcastInfo(from: string, data: string) {
+//         console.log(`${broadcast.prefix} ${from} => ${data}`);
+//     }
+// }

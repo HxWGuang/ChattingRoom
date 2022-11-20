@@ -8,6 +8,13 @@ export const enum eCommandType {
     logout = 'logout',
 }
 
+export const enum eMsgType {
+    server = 'server',
+    chat   = 'chat',
+    reply  = 'reply',
+    state  = 'state'
+}
+
 // 服务器信息
 export const serverInfo = {
     host : "127.0.0.1",

@@ -5,13 +5,15 @@ import {clientInfo, socket, serverInfo, eCommandType} from "../share/entity/defi
 
 const rl = readline.createInterface({input, output});
 
+let username: string;
+let line = 0;
+const msgList: Buffer[] = [];
+
 const waitUsername = new Promise((resolve) => {
     rl.question('请输入用户名:\n', answer => {
         resolve(answer);
     });
 });
-
-let username: string;
 
 waitUsername.then(_username => {
     username = _username as string;
@@ -27,16 +29,34 @@ function onConnection(socket: net.Socket) {
     socket.write(`${eCommandType.login} ${username}`);
 
     rl.on('line', (input) => {
-        if (input === eCommandType.leave) {
-            socket.write(eCommandType.leave);
-            socket.setTimeout(1000);
-        } else {
-            socket.write(input);
+        const sendDataArr = input.split(' ');
+
+        switch (sendDataArr[0]) {
+            case eCommandType.leave: {
+                socket.write(eCommandType.leave);
+                socket.setTimeout(1000);
+                break;
+            }
+            case eCommandType.reply: {
+                const replyLine = Number(sendDataArr[1]);
+                const sourceContent = msgList[replyLine - 1];
+                const replyContent = sendDataArr[2];
+                const sendStr = `reply ${sourceContent} \
+                \n---------------------- \
+                \n${replyContent}`;
+                socket.write(sendStr);
+                break;
+            }
+            default: {
+                socket.write(input);
+            }
         }
+        output.write(`${++line} ${input}\n`);
     });
 
     socket.on('data', (msg) => {
-        console.info(msg);
+        output.write(`${++line} ${msg}\n`);
+        msgList.push(msg);
     });
 
     socket.on('timeout', () => {
