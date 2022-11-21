@@ -1,8 +1,9 @@
 import * as net from "node:net";
+import readline from "node:readline";
 import {stdin as input, stdout as output} from 'node:process';
 import {eCommandType, serverInfo} from "../share/entity/defineType";
 import {chatMsg, replyMsg, serverMsg} from "../share/entity/msg";
-import readline from "node:readline";
+import {room} from "../share/entity/room";
 
 const rl = readline.createInterface({input, output});
 const chatMsgIns = new chatMsg();
@@ -10,7 +11,8 @@ const serMsgIns = new serverMsg();
 const reMsgIns = new replyMsg();
 
 let userMapping = new Map<net.Socket, string>();
-let line = 0;
+let roomMapping = new Map<room, net.Socket[]>();
+let gamers: net.Socket[] = [];
 
 let server = net.createServer(onConnection).listen(serverInfo.port, serverInfo.host, () => {
     console.log('正在监听',server.address());
@@ -54,6 +56,24 @@ function handleData(data: string, socket: net.Socket) {
             broadcast(serMsgIns.msgStr(`已离开聊天室`, name), socket);
             break;
         }
+        case eCommandType.create: {
+            const roomIns = new room('room'+(roomMapping.size + 1), socket);
+            roomMapping.set(roomIns, new Array(socket));
+            socket.write(serMsgIns.msgStr(`已创建房间:${roomIns.roomId}`));
+            socket.write(serMsgIns.msgStr(`已进入房间:${roomIns.roomId}`));
+            break;
+        }
+        case eCommandType.list: {
+            const roomList = listRooms();
+            socket.write(serMsgIns.msgStr(roomList));
+            break;
+        }
+        case eCommandType.join: {   // 加入房间
+            const roomId = getCmdValue(data);
+
+
+            break;
+        }
         case eCommandType.say: {
             let msg = getCmdValue(data);
             broadcast(chatMsgIns.msgStr(msg, name), socket);
@@ -62,6 +82,20 @@ function handleData(data: string, socket: net.Socket) {
         case eCommandType.reply: {
             let reMsg = getCmdValue(data);
             broadcast(reMsgIns.msgStr(reMsg, name), socket);
+            break;
+        }
+        case eCommandType.roll: {
+            // 客户端已加入游戏直接break
+            if (gamers.includes(socket)) break;
+
+            gamers.push(socket);
+
+            if (gamers.length >= 1) {
+                broadcast(serMsgIns.msgStr(`${name} 开启了一场roll点游戏！输入roll命令参与游戏！`));
+
+            }
+
+
             break;
         }
     }
@@ -98,8 +132,12 @@ function removeSocket(socket: net.Socket) {
     userMapping.delete(socket);
 }
 
-function lookupAllUser(roomId?: number) {
-    if (typeof roomId !== 'undefined') {
+function rollGam() {
+    console.log('触发器被触发了');
+}
+
+function lookupAllUser(roomId?: string) {
+    if (roomId !== undefined) {
         console.info('要查询的roomId:', roomId);
     } else {
         output.write('[\n');
@@ -108,4 +146,15 @@ function lookupAllUser(roomId?: number) {
         });
         output.write(']\n');
     }
+}
+
+function listRooms() {
+    let roomListStr = 'room list: \n';
+
+    for (const room of roomMapping.keys()) {
+        roomListStr += ('\t' + room.roomId + '\n');
+    }
+
+    console.log(roomListStr);
+    return roomListStr;
 }

@@ -6,6 +6,10 @@ export const enum eCommandType {
     roll   = 'roll',
     leave  = 'leave',
     logout = 'logout',
+    join   = 'join',
+    create = 'create',
+    list   = 'list',
+    refresh ='refresh',
 }
 
 export const enum eMsgType {
