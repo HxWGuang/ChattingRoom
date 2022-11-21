@@ -6,19 +6,23 @@ interface msgInfo {
 
 abstract class msg implements msgInfo{
      prefix = '';
-     public msgStr(data: string, from: string | undefined): string {
-         return `${this.prefix} ${from} => ${data}`;
+     public msgStr(data: string, from?: string): string {
+         if (from === undefined) {
+             return `${this.prefix} ${data}`;
+         } else {
+             return `${this.prefix} ${from} ${data}`;
+         }
      };
 }
 
 export class chatMsg extends msg{
     prefix = '[chat]';
 
-    public msgStr(data: string, from: string | undefined, line?: number): string {
+    public msgStr(data: string, from?: string, line?: number): string {
         if (line === undefined) {
-            return `${this.prefix} ${from} => ${data}`;
+            return `${this.prefix} ${from}> ${data}`;
         } else {
-            return `${line} ${this.prefix} ${from} => ${data}`;
+            return `${line} ${this.prefix} ${from}> ${data}`;
         }
     }
 }
@@ -27,7 +31,7 @@ export class replyMsg extends msg {
     prefix = '[reply]';
 }
 
-export class serverMsg extends chatMsg {
+export class serverMsg extends msg {
     prefix = '[server]';
 }
 

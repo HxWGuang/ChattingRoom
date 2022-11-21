@@ -7,6 +7,7 @@ const rl = readline.createInterface({input, output});
 
 let username: string;
 let line = 0;
+// const msgList: [string, Buffer][] = [];
 const msgList: Buffer[] = [];
 
 const waitUsername = new Promise((resolve) => {
@@ -55,7 +56,12 @@ function onConnection(socket: net.Socket) {
     });
 
     socket.on('data', (msg) => {
-        output.write(`${++line} ${msg}\n`);
+        if (msg.toString().startsWith('[server]')) {
+            output.write(`${msg}\n`);
+            return;
+        } else {
+            output.write(`${++line} ${msg}\n`);
+        }
         msgList.push(msg);
     });
 
