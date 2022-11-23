@@ -1,17 +1,24 @@
-import * as net from "node:net";
+import {hall} from "./hall";
+export const enum eRoomState {
+    normal      =   'normal',
+    destroying  =   'destroying',
+    destroyed   =   'destroyed',
+}
 
-export class room {
-    roomId: string;
-    userCount: number;
-    private sockets: net.Socket[];
+export class room extends hall{
+    readonly roomId: string;
+    private _state: eRoomState;
 
-    constructor(roomId:string, ...sockets:net.Socket[]) {
+    constructor(roomId:string) {
+        super();
         this.roomId = roomId;
-        if (sockets !== undefined) {
-            this.sockets = sockets;
-        } else {
-            this.sockets = [];
-        }
-        this.userCount = sockets.length;
+        this._state = eRoomState.normal;
+    }
+
+    get state() {
+        return this._state;
+    }
+    set state(s) {
+        this._state = s;
     }
 }

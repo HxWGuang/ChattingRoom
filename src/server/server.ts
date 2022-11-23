@@ -3,16 +3,20 @@ import readline from "node:readline";
 import {stdin as input, stdout as output} from 'node:process';
 import {eCommandType, serverInfo} from "../share/entity/defineType";
 import {chatMsg, replyMsg, serverMsg} from "../share/entity/msg";
-import {room} from "../share/entity/room";
+import {room, eRoomState as roomStat} from "../share/entity/room";
+import {hall} from "../share/entity/hall";
+import {userInfo} from "../share/entity/userInfo";
 
 const rl = readline.createInterface({input, output});
 const chatMsgIns = new chatMsg();
 const serMsgIns = new serverMsg();
 const reMsgIns = new replyMsg();
 
-let userMapping = new Map<net.Socket, string>();
-let roomMapping = new Map<room, net.Socket[]>();
-let gamers: net.Socket[] = [];
+const userMapping = new Map<net.Socket, userInfo>();
+const roomMapping = new Map<string, room>();
+const hallIns = new hall();
+
+type locType = hall | room;
 
 let server = net.createServer(onConnection).listen(serverInfo.port, serverInfo.host, () => {
     console.log('正在监听',server.address());
@@ -29,74 +33,113 @@ function onConnection(socket: net.Socket) {
 
     socket.on('error', (err) => {
         console.info(`${userMapping.get(socket)} 断开连接`);
-        removeSocket(socket);
+        removeUser(socket);
     });
 
     socket.on('close', () => {
-        console.info(`${userMapping.get(socket)} 已离开聊天室`)
-        removeSocket(socket);
+        const user = userMapping.get(socket);
+        console.info(`${user? user.username : socket} 已离开聊天室`);
+        removeUser(socket);
+    });
+
+    // todo: 服务器输入指令
+    rl.on('line', (input) => {
+
     });
 }
 
 function handleData(data: string, socket: net.Socket) {
     let cmd = getCmdKey(data) as eCommandType;
-    let name = userMapping.get(socket);
+    console.info(`[debug] 已收到消息：${socket.remoteAddress}:${socket.remotePort} => ${data}`);
+    console.log('cmd =', cmd);
+    // 登录指令
+    if (cmd === eCommandType.login) {
+        // create userInfo instance
+        const name = getCmdValue(data);
+        const user = new userInfo(name, socket, hallIns);
 
-    console.info(`[debug] 已收到消息：${name} => ${data}`);
-    console.log('解析出cmd =', cmd);
+        // add to userMapping
+        userMapping.set(socket, user);
 
-    switch (cmd) {
-        case eCommandType.login: {
-            let name = getCmdValue(data);
-            userMapping.set(socket, name);
-            broadcast(serMsgIns.msgStr(`已加入聊天室`, name));
-            break;
-        }
-        case eCommandType.leave: {
-            broadcast(serMsgIns.msgStr(`已离开聊天室`, name), socket);
-            break;
-        }
-        case eCommandType.create: {
-            const roomIns = new room('room'+(roomMapping.size + 1), socket);
-            roomMapping.set(roomIns, new Array(socket));
-            socket.write(serMsgIns.msgStr(`已创建房间:${roomIns.roomId}`));
-            socket.write(serMsgIns.msgStr(`已进入房间:${roomIns.roomId}`));
-            break;
-        }
-        case eCommandType.list: {
-            const roomList = listRooms();
-            socket.write(serMsgIns.msgStr(roomList));
-            break;
-        }
-        case eCommandType.join: {   // 加入房间
-            const roomId = getCmdValue(data);
+        // add to hall
+        hallIns.addUser(user);
 
-
-            break;
+        broadcast(serMsgIns.msgStr(`已加入聊天室`, name));
+    }
+    else // 其他指令
+    {
+        const user = userMapping.get(socket);
+        if (user === undefined) {
+            console.error(`没有找到 ${socket} 对应的userinfo！`);
+            return;
         }
-        case eCommandType.say: {
-            let msg = getCmdValue(data);
-            broadcast(chatMsgIns.msgStr(msg, name), socket);
-            break;
-        }
-        case eCommandType.reply: {
-            let reMsg = getCmdValue(data);
-            broadcast(reMsgIns.msgStr(reMsg, name), socket);
-            break;
-        }
-        case eCommandType.roll: {
-            // 客户端已加入游戏直接break
-            if (gamers.includes(socket)) break;
 
-            gamers.push(socket);
+        const name = user.username;
+        const lastLoc = user.location;
 
-            if (gamers.length >= 1) {
-                broadcast(serMsgIns.msgStr(`${name} 开启了一场roll点游戏！输入roll命令参与游戏！`));
+        switch (cmd) {
+            case eCommandType.create: {
+                // create room instance
+                const roomId = 'room' + (roomMapping.size + 1);
+                const roomIns = new room(roomId);
+                roomMapping.set(roomId, roomIns);
+                broadcast(serMsgIns.msgStr(`${name} 创建了房间：${roomId}`), lastLoc);
 
+                // move user
+                moveUser(user, lastLoc, roomIns);
+                //fixme: 这里会给创建房间的用户发送两遍消息，待修复
+                broadcast(serMsgIns.msgStr(`${name} 已进入房间0：${roomIns.roomId}`), user.location);
+                break;
             }
+            case eCommandType.list: {
+                // list all active rooms
+                const roomList = listRooms();
+                socket.write(serMsgIns.msgStr(roomList));
+                break;
+            }
+            case eCommandType.join: {
+                // join a room
+                const roomId = getCmdValue(data);
+                const room = roomMapping.get(roomId);
+                if (room) {
+                    moveUser(user, lastLoc, room);
+                    broadcast(serMsgIns.msgStr(`${name} 已进入房间`), lastLoc);
+                } else {
+                    socket.write(serMsgIns.msgStr(`${roomId} 房间不存在！`));
+                }
+                break;
+            }
+            case eCommandType.leave: {
+                // leave a room back to hall
+                broadcast(serMsgIns.msgStr(`${name} 已离开房间`), lastLoc, user);
+                moveUser(user, lastLoc, hallIns);
 
+                // should destroy room?
+                if (lastLoc instanceof room && lastLoc.userCount <= 0) {
+                    console.log('最后一个用户已离开, 准备销毁房间！');
+                    destroyRoom(lastLoc);
+                }
+                break;
+            }
+            case eCommandType.logout: {
+                broadcast(serMsgIns.msgStr(`${name} 已离开聊天室`), hallIns);
+                // 后续操作在socket的close事件中执行
+                break;
+            }
+            case eCommandType.say: {
+                const msg = getCmdValue(data);
+                broadcast(chatMsgIns.msgStr(msg, name), lastLoc, user);
+                break;
+            }
+            case eCommandType.reply: {
+                const reMsg = getCmdValue(data);
+                broadcast(reMsgIns.msgStr(reMsg, name), lastLoc, user);
+                break;
+            }
+            case eCommandType.roll: {
 
-            break;
+                break;
+            }
         }
     }
 }
@@ -109,31 +152,60 @@ function getCmdValue(data: string) {
     return data.slice(firstSpace + 1);
 }
 
-function broadcast(msg: string, from?: net.Socket) {
+function broadcast(msg: string, loc?: locType, from? :userInfo)
+{
     if (userMapping.size <= 0) {
         console.info('聊天室内没有用户！');
         return;
-    } else {
-        userMapping.forEach((name,socket) => {
-            if (from === undefined) {
-                socket.write(msg);
+    }
+    else
+    {
+        if (loc) {  // 向loc区域内用户广播
+            if (from) {
+                loc.users.forEach((user) => {
+                    if (from === user) return;
+                    user.socket.write(msg);
+                });
             } else {
-                if (from === socket) return;
-                socket.write(msg);
+                loc.users.forEach((user) => {
+                    user.socket.write(msg);
+                });
             }
-        });
+        }
+        else // 向全局所有用户广播
+        {
+            if (from) {
+                userMapping.forEach((user,socket) => {
+                    if (from.socket === socket) return;
+                    socket.write(msg);
+                });
+            } else {
+                userMapping.forEach((user, socket) => {
+                    socket.write(msg);
+                });
+            }
+        }
         console.info(`已广播消息：${msg}`);
     }
 }
 
-function removeSocket(socket: net.Socket) {
+function removeUser(user: net.Socket): void;
+function removeUser(user: userInfo):void;
+function removeUser(expect: net.Socket | userInfo)
+{
     if (userMapping.size <= 0) return;
 
-    userMapping.delete(socket);
-}
+    const user = (expect instanceof userInfo) ? expect : userMapping.get(expect);
+    if (!user) {
+        console.error(`userMapping中没有找到 ${expect} 对应的 userinfo!`);
+        return;
+    }
 
-function rollGam() {
-    console.log('触发器被触发了');
+    const loc = user.location;
+    // delete user from room/hall
+    loc.users.delete(user);
+    // delete user from userMapping
+    userMapping.delete(user.socket);
 }
 
 function lookupAllUser(roomId?: string) {
@@ -151,10 +223,43 @@ function lookupAllUser(roomId?: string) {
 function listRooms() {
     let roomListStr = 'room list: \n';
 
-    for (const room of roomMapping.keys()) {
-        roomListStr += ('\t' + room.roomId + '\n');
+    for (const roomId of roomMapping.keys()) {
+        roomListStr += ('\t' + roomId + '\n');
     }
 
     console.log(roomListStr);
     return roomListStr;
+}
+
+function destroyRoom(roomIns: room) {
+    roomIns.state = roomStat.destroying;
+    roomMapping.delete(roomIns.roomId);
+
+    setTimeout(()=> {
+        roomIns.state = roomStat.destroyed;
+        console.info(`${roomIns.roomId} 已销毁！`);
+    },10 * 1000);
+}
+
+// todo: 指令在该场景中是否可用
+function canUserThisCmd(loc: locType, cmd: eCommandType) {
+
+}
+
+// 注意：moveUser会修改user的location
+function moveUser(user: userInfo, from: locType, to: locType): void;
+function moveUser(socket: net.Socket, from: locType, to: locType): void;
+function moveUser(expect: userInfo | net.Socket, from: locType, to: locType) {
+    if (expect instanceof userInfo) {
+        from.removeUser(expect);
+        to.addUser(expect);
+        expect.location = to;
+    } else {
+        const user = userMapping.get(expect);
+        if (user) {
+            from.removeUser(user);
+            to.addUser(user);
+            user.location = to;
+        }
+    }
 }

@@ -1,5 +1,3 @@
-import {eMsgType as msgType} from "./defineType";
-
 interface msgInfo {
     prefix: string;
 }
@@ -29,18 +27,13 @@ export class chatMsg extends msg{
 
 export class replyMsg extends msg {
     prefix = '[reply]';
+
+    public msgStr(data: string, from: string): string {
+        return `${this.prefix} ${from}>\
+        \n\t${data}`;
+    }
 }
 
 export class serverMsg extends msg {
     prefix = '[server]';
 }
-
-// export let broadcast: msgInfo = {
-//     prefix: '[server]',
-// }
-//
-// export class log {
-//     static broadcastInfo(from: string, data: string) {
-//         console.log(`${broadcast.prefix} ${from} => ${data}`);
-//     }
-// }
