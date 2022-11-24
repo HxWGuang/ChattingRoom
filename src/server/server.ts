@@ -87,8 +87,7 @@ function handleData(data: string, socket: net.Socket) {
 
                 // move user
                 moveUser(user, lastLoc, roomIns);
-                //fixme: 这里会给创建房间的用户发送两遍消息，待修复
-                broadcast(serMsgIns.msgStr(`${name} 已进入房间0：${roomIns.roomId}`), user.location);
+                broadcast(serMsgIns.msgStr(`${name} 已进入房间：${roomIns.roomId}`), user.location);
                 break;
             }
             case eCommandType.list: {
@@ -103,7 +102,7 @@ function handleData(data: string, socket: net.Socket) {
                 const room = roomMapping.get(roomId);
                 if (room) {
                     moveUser(user, lastLoc, room);
-                    broadcast(serMsgIns.msgStr(`${name} 已进入房间`), lastLoc);
+                    broadcast(serMsgIns.msgStr(`${name} 已进入房间`), user.location);
                 } else {
                     socket.write(serMsgIns.msgStr(`${roomId} 房间不存在！`));
                 }
