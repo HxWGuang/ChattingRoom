@@ -9,7 +9,7 @@ import {hall} from "../share/entity/hall";
 import {user, userInfo, usersData} from "../share/entity/userInfo";
 import {eCommandType} from "../share/entity/cmdMgr";
 import {data} from "../share/utils/cmdWrapper";
-import {eGameStat, rollGame} from "./rollGame";
+import {eGameStat, rollGameMgr} from "./rollGameMgr";
 
 const rl = readline.createInterface({input, output});
 
@@ -20,7 +20,7 @@ let users: usersData = {
 const userMapping = new Map<net.Socket, userInfo>();
 const roomMapping = new Map<string, room>();
 const hallIns = new hall();
-const rollGameMgr = new rollGame();
+const rollGameMgrIns = new rollGameMgr();
 let timer: NodeJS.Timer | undefined;
 let intervalTimer: NodeJS.Timer | undefined;
 
@@ -218,39 +218,40 @@ function handleData(_data: string, socket: net.Socket) {
             }
             case eCommandType.roll: {
                 // game started
-                if (rollGameMgr.status === eGameStat.started) {
+                if (rollGameMgrIns.status === eGameStat.started) {
                     socket.write(msgTool.toJson(eMsgType.server, '游戏已开始!'));
                     return;
                 }
 
                 // game not start
-                if (rollGameMgr.players.size <= 0) {
+                if (rollGameMgrIns.players.size <= 0) {
                     broadcast(msgTool.toJson(eMsgType.server, `${name}开启了一局roll游戏！`));
-                    rollGameMgr.startTime = Date.now();
-                    rollGameMgr.players.add(user);
+                    rollGameMgrIns.startTime = Date.now();
+                    rollGameMgrIns.players.add(user);
                     timer = setTimeout(() => {
                         onGamTimerDone(lastLoc);
                     }, 10 * 1000);
                     intervalTimer = setInterval(() => {
-                        let diff = Date.now() - rollGameMgr.startTime;
+                        let diff = Date.now() - rollGameMgrIns.startTime;
                         console.log('diff =', diff);
                         if (diff >= 5 * 1000) {
                             broadcast(msgTool.toJson(eMsgType.server, `倒计时：${10 - Math.floor(diff/1000)}`), lastLoc);
                         }
                     }, 1000);
                 } else {
-                    let diff = Date.now() - rollGameMgr.startTime;
+                    let diff = Date.now() - rollGameMgrIns.startTime;
                     if (diff < 10 * 1000) {
                         if (diff >= 5 * 1000) {
                             socket.write(msgTool.toJson(eMsgType.server, `游戏已进入倒计时！不能加入`));
                         } else {
-                            rollGameMgr.startTime = Date.now();
-                            rollGameMgr.players.add(user);
+                            rollGameMgrIns.startTime = Date.now();
+                            rollGameMgrIns.players.add(user);
                             broadcast(msgTool.toJson(eMsgType.server, `${name} 加入游戏`), lastLoc);
-                            clearTimeout(timer);
-                            timer = setTimeout(() => {
-                                onGamTimerDone(lastLoc);
-                            },10 * 1000);
+                            timer?.refresh();
+                            // clearTimeout(timer);
+                            // timer = setTimeout(() => {
+                            //     onGamTimerDone(lastLoc);
+                            // },10 * 1000);
                         }
                     }
                 }
@@ -262,7 +263,7 @@ function handleData(_data: string, socket: net.Socket) {
 
 function onGamTimerDone(loc: locType) {
     clearInterval(intervalTimer);
-    let res = rollGameMgr.startGame();
+    let res = rollGameMgrIns.startGame();
     broadcast(msgTool.toJson(eMsgType.server, res), loc);
     clearTimeout(timer);
 }

@@ -5,7 +5,7 @@ export enum eGameStat {
     ended,
 }
 type pm = [string, number];
-export class rollGame {
+export class rollGameMgr {
     startTime: number;
     players: Set<userInfo>;
     status: eGameStat;
