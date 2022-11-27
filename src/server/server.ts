@@ -1,16 +1,15 @@
 import * as net from "node:net";
 import readline from "node:readline";
 import {stdin as input, stdout as output} from 'node:process';
-import {eCommandType, serverInfo} from "../share/entity/defineType";
-import {chatMsg, replyMsg, serverMsg} from "../share/entity/msg";
-import {room, eRoomState as roomStat} from "../share/entity/room";
+import {serverInfo} from "../share/entity/serverConfig";
+import {eMsgType, msgTool} from "../share/utils/msgTool";
+import {eRoomState as roomStat, room} from "../share/entity/room";
 import {hall} from "../share/entity/hall";
 import {userInfo} from "../share/entity/userInfo";
+import {eCommandType} from "../share/entity/cmdMgr";
+import {data} from "../share/utils/cmdWrapper";
 
 const rl = readline.createInterface({input, output});
-const chatMsgIns = new chatMsg();
-const serMsgIns = new serverMsg();
-const reMsgIns = new replyMsg();
 
 const userMapping = new Map<net.Socket, userInfo>();
 const roomMapping = new Map<string, room>();
@@ -48,14 +47,18 @@ function onConnection(socket: net.Socket) {
     });
 }
 
-function handleData(data: string, socket: net.Socket) {
-    let cmd = getCmdKey(data) as eCommandType;
-    console.info(`[debug] 已收到消息：${socket.remoteAddress}:${socket.remotePort} => ${data}`);
-    console.log('cmd =', cmd);
+function handleData(_data: string, socket: net.Socket) {
+    let data: data = JSON.parse(_data);
+    if (!data) {
+        console.error(`收到data为空：${data}`);
+        return;
+    }
+    console.info(`[debug] 已收到消息：${socket.remoteAddress}:${socket.remotePort} =>`, data);
+    let cmd = data.cmd;
     // 登录指令
     if (cmd === eCommandType.login) {
         // create userInfo instance
-        const name = getCmdValue(data);
+        const name = data.arg as string;
         const user = new userInfo(name, socket, hallIns);
 
         // add to userMapping
@@ -64,7 +67,7 @@ function handleData(data: string, socket: net.Socket) {
         // add to hall
         hallIns.addUser(user);
 
-        broadcast(serMsgIns.msgStr(`已加入聊天室`, name));
+        broadcast(msgTool.toJson(eMsgType.server, `${name} 已进入聊天室`), hallIns);
     }
     else // 其他指令
     {
@@ -83,34 +86,35 @@ function handleData(data: string, socket: net.Socket) {
                 const roomId = 'room' + (roomMapping.size + 1);
                 const roomIns = new room(roomId);
                 roomMapping.set(roomId, roomIns);
-                broadcast(serMsgIns.msgStr(`${name} 创建了房间：${roomId}`), lastLoc);
+                broadcast(msgTool.toJson(eMsgType.server,`${name} 创建了房间：${roomId}`), lastLoc);
 
                 // move user
                 moveUser(user, lastLoc, roomIns);
-                broadcast(serMsgIns.msgStr(`${name} 已进入房间：${roomIns.roomId}`), user.location);
+                broadcast(msgTool.toJson(eMsgType.server,`${name} 已进入房间：${roomIns.roomId}`), user.location);
                 break;
             }
             case eCommandType.list: {
                 // list all active rooms
                 const roomList = listRooms();
-                socket.write(serMsgIns.msgStr(roomList));
+                socket.write(msgTool.toJson(eMsgType.server, roomList));
                 break;
             }
+            // join [arg1]
             case eCommandType.join: {
                 // join a room
-                const roomId = getCmdValue(data);
+                const roomId = data.arg;
                 const room = roomMapping.get(roomId);
                 if (room) {
                     moveUser(user, lastLoc, room);
-                    broadcast(serMsgIns.msgStr(`${name} 已进入房间`), user.location);
+                    broadcast(msgTool.toJson(eMsgType.server, `${name} 已进入房间`), user.location);
                 } else {
-                    socket.write(serMsgIns.msgStr(`${roomId} 房间不存在！`));
+                    socket.write(msgTool.toJson(eMsgType.server, `${roomId} 房间不存在！`));
                 }
                 break;
             }
             case eCommandType.leave: {
                 // leave a room back to hall
-                broadcast(serMsgIns.msgStr(`${name} 已离开房间`), lastLoc, user);
+                broadcast(msgTool.toJson(eMsgType.server,`${name} 已离开房间`), lastLoc, user);
                 moveUser(user, lastLoc, hallIns);
 
                 // should destroy room?
@@ -121,18 +125,16 @@ function handleData(data: string, socket: net.Socket) {
                 break;
             }
             case eCommandType.logout: {
-                broadcast(serMsgIns.msgStr(`${name} 已离开聊天室`), hallIns);
+                broadcast(msgTool.toJson(eMsgType.server, `${name} 已离开聊天室`), hallIns);
                 // 后续操作在socket的close事件中执行
                 break;
             }
             case eCommandType.say: {
-                const msg = getCmdValue(data);
-                broadcast(chatMsgIns.msgStr(msg, name), lastLoc, user);
+                broadcast(msgTool.toJson(eMsgType.chat, data.content, name), lastLoc, user);
                 break;
             }
             case eCommandType.reply: {
-                const reMsg = getCmdValue(data);
-                broadcast(reMsgIns.msgStr(reMsg, name), lastLoc, user);
+                broadcast(msgTool.toJson(eMsgType.reply, data.content, name, data.arg), lastLoc, user);
                 break;
             }
             case eCommandType.roll: {
@@ -141,14 +143,6 @@ function handleData(data: string, socket: net.Socket) {
             }
         }
     }
-}
-
-function getCmdKey(data: string) {
-    return data.split(' ')[0];
-}
-function getCmdValue(data: string) {
-    let firstSpace = data.indexOf(' ');
-    return data.slice(firstSpace + 1);
 }
 
 function broadcast(msg: string, loc?: locType, from? :userInfo)
