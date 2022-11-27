@@ -13,22 +13,6 @@ let line = 0;
 type msgTup = [string,string];
 const msgList: msgTup[] = [];
 
-// const op = new Promise((resolve) => {
-//     rl.question('登录或注册:\n', cmd => {
-//         resolve(cmd);
-//     });
-// });
-//
-// op.then(cmdStr => {
-//     let arr = (cmdStr as string).split(' ');
-//     username = arr[]
-//     const socket = net.connect(serverInfo.port, serverInfo.host, () => {
-//         socket.setEncoding('utf-8');
-//
-//         onConnection(socket);
-//     });
-// });
-
 const socket = net.connect(serverInfo.port, serverInfo.host, () => {
     socket.setEncoding('utf-8');
 
@@ -97,7 +81,7 @@ function onConnection(socket: net.Socket) {
             }
             default: {
                 socket.write(cmdWrapper.toJson(...sendDataArr));
-                output.write(`${input}\n`);
+                // output.write(`${input}\n`);
             }
         }
     });
@@ -114,8 +98,8 @@ function onConnection(socket: net.Socket) {
             output.write(`${msgTool.showMsg(jsonData.type, jsonData.content, jsonData.from)}\n`);
             return;
         }
-        console.log(`客户端收到消息：${msg}`);
-        console.log(`msgList =`, msgList);
+        // console.log(`客户端收到消息：${msg}`);
+        // console.log(`msgList =`, msgList);
     });
 
     socket.on('timeout', () => {
