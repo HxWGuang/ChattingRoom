@@ -2,6 +2,18 @@ import * as net from "net";
 import {room} from "./room";
 import {hall} from "./hall";
 
+export interface usersData {
+    count: number,
+    users: user[]
+}
+
+export interface user {
+     username: string;
+     password: string;
+     ip: string;
+    //...
+}
+
 export class userInfo {
     private _username: string;
     private _socket: net.Socket;

@@ -17,7 +17,7 @@ export class hall {
     removeUser(user: userInfo):boolean {
         if (this._users.has(user)) {
             this._users.delete(user);
-            console.log('this._users =', this._users);
+            // console.log('this._users =', this._users);
             return true;
         } else {
             console.log('没有找到待删除用户！');

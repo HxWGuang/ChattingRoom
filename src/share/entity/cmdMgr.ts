@@ -1,5 +1,6 @@
 // 命令枚举
 export enum eCommandType {
+    signup = 'signup',
     login = 'login',
     say = 'say',
     reply = 'reply',

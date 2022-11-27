@@ -8,30 +8,39 @@ import {eMsgType, msgInfo, msgTool} from "../share/utils/msgTool";
 
 const rl = readline.createInterface({input, output});
 
-let username: string;
+let stat = false;
 let line = 0;
 type msgTup = [string,string];
 const msgList: msgTup[] = [];
 
-const waitUsername = new Promise((resolve) => {
-    rl.question('请输入用户名:\n', answer => {
-        resolve(answer);
-    });
-});
+// const op = new Promise((resolve) => {
+//     rl.question('登录或注册:\n', cmd => {
+//         resolve(cmd);
+//     });
+// });
+//
+// op.then(cmdStr => {
+//     let arr = (cmdStr as string).split(' ');
+//     username = arr[]
+//     const socket = net.connect(serverInfo.port, serverInfo.host, () => {
+//         socket.setEncoding('utf-8');
+//
+//         onConnection(socket);
+//     });
+// });
 
-waitUsername.then(_username => {
-    username = _username as string;
-    const socket = net.connect(serverInfo.port, serverInfo.host, () => {
-        socket.setEncoding('utf-8');
+const socket = net.connect(serverInfo.port, serverInfo.host, () => {
+    socket.setEncoding('utf-8');
 
-        onConnection(socket);
-    });
+    onConnection(socket);
 });
 
 function onConnection(socket: net.Socket) {
     console.info(`已连接到${socket.remoteAddress}:${socket.remotePort}`);
-    // socket.write(`${eCommandType.login} ${username}`);
-    socket.write(cmdWrapper.toJson(eCommandType.login,username));
+
+    output.write('登录或注册：\n');
+
+    let username: string;
 
     rl.on('line', (input) => {
         const sendDataArr = input.split(' ');
@@ -39,6 +48,15 @@ function onConnection(socket: net.Socket) {
         if (!(sendDataArr[0] in eCommandType)) {
             console.error(`无法识别指令：${sendDataArr[0]}`);
             return;
+        }
+        if (sendDataArr[0] === eCommandType.login || sendDataArr[0] === eCommandType.signup) {
+            username = sendDataArr[1];
+            socket.write(cmdWrapper.toJson(...sendDataArr));
+        } else {
+            if (!stat) {
+                output.write('请先登录或注册!\n');
+                return;
+            }
         }
 
         // 不同的指令有不同的特殊操作
@@ -48,6 +66,8 @@ function onConnection(socket: net.Socket) {
         //     return;
         // }
         switch (sendDataArr[0]) {
+            case eCommandType.signup:
+            case eCommandType.login: {break;}
             case eCommandType.logout: {
                 socket.write(cmdWrapper.toJson(...sendDataArr));
                 socket.setTimeout(1000);
@@ -82,9 +102,9 @@ function onConnection(socket: net.Socket) {
         }
     });
 
-    //todo: 服务器也要发json，客户端解析json
     socket.on('data', (msg) => {
         let jsonData: msgInfo = JSON.parse(msg.toString());
+        stat = jsonData.status;
 
         if (jsonData.type === eMsgType.chat || jsonData.type === eMsgType.reply) {
             output.write(`${++line} ${msgTool.showMsg(jsonData.type, jsonData.content, jsonData.from, jsonData.to)}\n`);

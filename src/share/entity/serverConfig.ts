@@ -4,6 +4,8 @@ export const serverInfo = {
     port : 3000
 }
 
+export const userStoreLoc = '/Users/huangran/WebstormProjects/ts-chattingRoom/store/users.json';
+
 // export interface socket {
 //     ip: string;
 //     port: number;

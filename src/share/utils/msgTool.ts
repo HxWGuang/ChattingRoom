@@ -9,20 +9,21 @@ export interface msgInfo {
     from: string;
     to?: string;
     content: string;
+    status: boolean;
 }
 
 export class msgTool {
-     static toJson(type: eMsgType, data: string, from?: string, to?: string): string {
+     static toJson(type: eMsgType, data: string, stat?: boolean): string;
+     static toJson(type: eMsgType, data: string, from?: string, to?: string): string;
+     static toJson(type: eMsgType, data: string, expect?: string | boolean, to?: string): string {
          let msg: msgInfo = {
              type : eMsgType.server,
              content : '',
-             from: 'server'
+             from: (typeof expect === "string") ? expect : 'server',
+             status: ((typeof expect === "string") || (typeof expect === "undefined")) ? true : expect,
          }
 
          msg.type = type;
-         if (from) {
-             msg.from = from;
-         }
 
          switch (type) {
              case eMsgType.chat:

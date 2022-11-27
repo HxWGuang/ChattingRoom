@@ -1,16 +1,21 @@
 import * as net from "node:net";
 import readline from "node:readline";
+import * as fs from "fs";
 import {stdin as input, stdout as output} from 'node:process';
-import {serverInfo} from "../share/entity/serverConfig";
+import {serverInfo, userStoreLoc} from "../share/entity/serverConfig";
 import {eMsgType, msgTool} from "../share/utils/msgTool";
 import {eRoomState as roomStat, room} from "../share/entity/room";
 import {hall} from "../share/entity/hall";
-import {userInfo} from "../share/entity/userInfo";
+import {user, userInfo, usersData} from "../share/entity/userInfo";
 import {eCommandType} from "../share/entity/cmdMgr";
 import {data} from "../share/utils/cmdWrapper";
 
 const rl = readline.createInterface({input, output});
 
+let users: usersData = {
+    count: 0,
+    users: []
+}
 const userMapping = new Map<net.Socket, userInfo>();
 const roomMapping = new Map<string, room>();
 const hallIns = new hall();
@@ -19,6 +24,13 @@ type locType = hall | room;
 
 let server = net.createServer(onConnection).listen(serverInfo.port, serverInfo.host, () => {
     console.log('正在监听',server.address());
+
+    let sourceData = fs.readFileSync(userStoreLoc);
+    if (sourceData.toString()) {
+        users = JSON.parse(sourceData.toString());
+    }
+
+    console.log(users);
 });
 
 function onConnection(socket: net.Socket) {
@@ -57,8 +69,52 @@ function handleData(_data: string, socket: net.Socket) {
     let cmd = data.cmd;
     // 登录指令
     if (cmd === eCommandType.login) {
+        const name = data.arg[0];
+        const pwd = data.arg[1];
+
+        let user: user | undefined;
+        users.users.forEach((_user) => {
+            if (_user.username === name) {
+                user = _user;
+            }
+        });
+        if (!user) {
+            socket.write(msgTool.toJson(eMsgType.server, `用户：${name}未注册！`, false));
+            return;
+        } else {
+            if (user.password !== pwd) {
+                socket.write(msgTool.toJson(eMsgType.server, '密码错误！', false));
+                return;
+            }
+            else
+            {
+                // create userInfo instance
+                const _user = new userInfo(name, socket, hallIns);
+                // add to userMapping
+                userMapping.set(socket, _user);
+                // add to hall
+                hallIns.addUser(_user);
+                broadcast(msgTool.toJson(eMsgType.server, `${name} 已进入聊天室`), hallIns);
+            }
+        }
+    }
+    // 注册指令
+    if (cmd === eCommandType.signup) {
         // create userInfo instance
-        const name = data.arg as string;
+        const name = data.arg[0];
+        const pwd = data.arg[1];
+
+        // check signup user
+        let res = users.users.find((user) => {
+            if (user.username === name) {
+                return true;
+            }
+        });
+        if (res) {
+            socket.write(msgTool.toJson(eMsgType.server, `用户名：${name} 已存在！`, false));
+            return;
+        }
+
         const user = new userInfo(name, socket, hallIns);
 
         // add to userMapping
@@ -66,6 +122,18 @@ function handleData(_data: string, socket: net.Socket) {
 
         // add to hall
         hallIns.addUser(user);
+
+        // write to file
+        let userdata: user = {
+            username: name,
+            password: pwd,
+            ip: socket.remoteAddress ? socket.remoteAddress.toString() : 'null'
+        }
+        users.users.push(userdata);
+        users.count++;
+        fs.writeFile(userStoreLoc, JSON.stringify(users), ()=> {
+            console.info('已写入用户数据');
+        });
 
         broadcast(msgTool.toJson(eMsgType.server, `${name} 已进入聊天室`), hallIns);
     }
@@ -102,7 +170,7 @@ function handleData(_data: string, socket: net.Socket) {
             // join [arg1]
             case eCommandType.join: {
                 // join a room
-                const roomId = data.arg;
+                const roomId = data.arg[0];
                 const room = roomMapping.get(roomId);
                 if (room) {
                     moveUser(user, lastLoc, room);
@@ -134,7 +202,7 @@ function handleData(_data: string, socket: net.Socket) {
                 break;
             }
             case eCommandType.reply: {
-                broadcast(msgTool.toJson(eMsgType.reply, data.content, name, data.arg), lastLoc, user);
+                broadcast(msgTool.toJson(eMsgType.reply, data.content, name, data.arg[0]), lastLoc, user);
                 break;
             }
             case eCommandType.roll: {
@@ -216,8 +284,12 @@ function lookupAllUser(roomId?: string) {
 function listRooms() {
     let roomListStr = 'room list: \n';
 
-    for (const roomId of roomMapping.keys()) {
-        roomListStr += ('\t' + roomId + '\n');
+    if (roomMapping.size <= 0) {
+        roomListStr += '\tnull';
+    }
+
+    for (const roomInfo of roomMapping) {
+        roomListStr += `\t[ 名字：${roomInfo[1].roomId}  状态：${roomInfo[1].state}  人数：${roomInfo[1].users.size} ]\n`;
     }
 
     console.log(roomListStr);
