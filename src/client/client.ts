@@ -3,8 +3,8 @@ import * as readline from 'node:readline';
 import {stdin as input, stdout as output} from 'node:process';
 import {serverInfo} from "../share/entity/serverConfig";
 import {cmdWrapper} from "../share/utils/cmdWrapper";
-import {eCommandType} from "../share/entity/cmdMgr";
-import {eMsgType, msgInfo, msgTool} from "../share/utils/msgTool";
+import {msgTool} from "../share/utils/msgTool";
+import {eCommandType, eMsgType, msgBodyStruct} from "../share/utils/attTypeDefine";
 
 const rl = readline.createInterface({input, output});
 
@@ -87,7 +87,7 @@ function onConnection(socket: net.Socket) {
     });
 
     socket.on('data', (msg) => {
-        let jsonData: msgInfo = JSON.parse(msg.toString());
+        let jsonData: msgBodyStruct = JSON.parse(msg.toString());
         stat = jsonData.status;
 
         if (jsonData.type === eMsgType.chat || jsonData.type === eMsgType.reply) {

@@ -3,17 +3,23 @@ import readline from "node:readline";
 import * as fs from "fs";
 import {stdin as input, stdout as output} from 'node:process';
 import {serverInfo, userStoreLoc} from "../share/entity/serverConfig";
-import {eMsgType, msgTool} from "../share/utils/msgTool";
-import {eRoomState as roomStat, room} from "../share/entity/room";
-import {hall} from "../share/entity/hall";
-import {user, userInfo, usersData} from "../share/entity/userInfo";
-import {eCommandType} from "../share/entity/cmdMgr";
-import {data} from "../share/utils/cmdWrapper";
-import {eGameStat, rollGameMgr} from "./rollGameMgr";
+import {msgTool} from "../share/utils/msgTool";
+import {room} from "../share/entity/room";
+import {hall} from "./hall";
+import {userInfo} from "../share/entity/userInfo";
+import {rollGameMgr} from "./rollGameMgr";
+import {
+    dataBodyStruct,
+    eCommandType,
+    eGameStat,
+    eMsgType,
+    eRoomState as roomStat,
+    userInfoStruct, usersDataStruct
+} from "../share/utils/attTypeDefine";
 
 const rl = readline.createInterface({input, output});
 
-let users: usersData = {
+let users: usersDataStruct = {
     count: 0,
     users: []
 }
@@ -71,7 +77,7 @@ function onConnection(socket: net.Socket) {
 }
 
 function handleData(_data: string, socket: net.Socket) {
-    let data: data = JSON.parse(_data);
+    let data: dataBodyStruct = JSON.parse(_data);
     if (!data) {
         console.error(`收到data为空：${data}`);
         return;
@@ -83,7 +89,7 @@ function handleData(_data: string, socket: net.Socket) {
         const name = data.arg[0];
         const pwd = data.arg[1];
 
-        let user: user | undefined;
+        let user: userInfoStruct | undefined;
         users.users.forEach((_user) => {
             if (_user.username === name) {
                 user = _user;
@@ -135,7 +141,7 @@ function handleData(_data: string, socket: net.Socket) {
         hallIns.addUser(user);
 
         // write to file
-        let userdata: user = {
+        let userdata: userInfoStruct = {
             username: name,
             password: pwd,
             ip: socket.remoteAddress ? socket.remoteAddress.toString() : 'null'

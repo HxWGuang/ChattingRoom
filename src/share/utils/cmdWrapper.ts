@@ -1,15 +1,9 @@
-import {eCommandType} from "../entity/cmdMgr";
-
-export interface data{
-    cmd: string,
-    arg: string[],
-    content: string,
-}
+import {dataBodyStruct, eCommandType} from "./attTypeDefine";
 
 export class cmdWrapper {
 
     static toJson(...arg:string[]) {
-        let sendData: data = {
+        let sendData: dataBodyStruct = {
             cmd: '',
             arg: [''],
             content: '',

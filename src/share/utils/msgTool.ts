@@ -1,22 +1,10 @@
-export enum eMsgType {
-    server = 'server',
-    chat   = 'chat',
-    reply  = 'reply'
-}
-
-export interface msgInfo {
-    type: eMsgType;
-    from: string;
-    to?: string;
-    content: string;
-    status: boolean;
-}
+import {eMsgType, msgBodyStruct} from "./attTypeDefine";
 
 export class msgTool {
      static toJson(type: eMsgType, data: string, stat?: boolean): string;
      static toJson(type: eMsgType, data: string, from?: string, to?: string): string;
      static toJson(type: eMsgType, data: string, expect?: string | boolean, to?: string): string {
-         let msg: msgInfo = {
+         let msg: msgBodyStruct = {
              type : eMsgType.server,
              content : '',
              from: (typeof expect === "string") ? expect : 'server',

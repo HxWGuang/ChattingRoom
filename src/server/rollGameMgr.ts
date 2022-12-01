@@ -1,9 +1,6 @@
 import {userInfo} from "../share/entity/userInfo";
+import {eGameStat} from "../share/utils/attTypeDefine";
 
-export enum eGameStat {
-    started,
-    ended,
-}
 type pm = [string, number];
 export class rollGameMgr {
     startTime: number;

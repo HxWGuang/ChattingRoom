@@ -1,18 +1,6 @@
 import * as net from "net";
 import {room} from "./room";
-import {hall} from "./hall";
-
-export interface usersData {
-    count: number,
-    users: user[]
-}
-
-export interface user {
-     username: string;
-     password: string;
-     ip: string;
-    //...
-}
+import {hall} from "../../server/hall";
 
 export class userInfo {
     private _username: string;
