@@ -24,6 +24,7 @@ const socket = net.connect(serverInfo.port, serverInfo.host, () => {
 
 function onConnect(socket: net.Socket) {
     console.info(`已连接到${socket.remoteAddress}:${socket.remotePort}`);
+    output.write('输入help可查看指令\n');
 
     // init
     loginSysInst.socket = socket;
@@ -42,7 +43,7 @@ function onConnect(socket: net.Socket) {
             console.error(`无法识别指令：${sendDataArr[0]}`);
             return;
         }
-        if (cmd === eCommandType.login || cmd === eCommandType.signup) {
+        if (cmd === eCommandType.login || cmd === eCommandType.signup || cmd === eCommandType.help) {
             chatSysInst.username = args[0];
             inputHandlerInst.execute(cmd, args);
         } else {

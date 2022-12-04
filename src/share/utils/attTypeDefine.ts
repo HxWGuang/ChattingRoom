@@ -12,6 +12,7 @@ export enum eCommandType {
     list = 'list',
     refresh = 'refresh',
     kick = 'kick',
+    help = 'help',
 }
 
 // 消息类型
