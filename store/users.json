@@ -1,1 +1,1 @@
-{"count":4,"users":[{"username":"hxg","password":"...","ip":"127.0.0.1"},{"username":"abc","password":"123","ip":"127.0.0.1"},{"username":"abc","password":"1","ip":"127.0.0.1"},{"username":"test","password":"1","ip":"127.0.0.1"}]}
+{"count":3,"users":[{"username":"admin","password":"...","ip":"127.0.0.1","type":1},{"username":"hxg","password":"111","ip":"127.0.0.1","type":0},{"username":"test","password":"222","ip":"127.0.0.1","type":0}]}

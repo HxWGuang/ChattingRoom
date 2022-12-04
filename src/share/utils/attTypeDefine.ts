@@ -20,6 +20,11 @@ export enum eMsgType {
     reply = 'reply'
 }
 
+export enum eUserType {
+    normal,
+    admin,
+}
+
 // 游戏状态
 export enum eGameStat {
 started,
@@ -60,5 +65,6 @@ export interface userInfoStruct {
     username: string;
     password: string;
     ip: string;
+    type: eUserType;
     //...
 }

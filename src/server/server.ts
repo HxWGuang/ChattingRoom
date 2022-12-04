@@ -1,7 +1,7 @@
 import * as net from "node:net";
 import readline from "node:readline";
 import * as fs from "fs";
-import {stdin as input, stdout as output} from 'node:process';
+// import {stdin as input, stdout as output} from 'node:process';
 import {serverInfo, userStoreLoc} from "../share/entity/serverConfig";
 import {msgTool} from "../share/utils/msgTool";
 import {room} from "../share/entity/room";
@@ -14,10 +14,12 @@ import {
     eGameStat,
     eMsgType,
     eRoomState as roomStat,
-    userInfoStruct, usersDataStruct
+    eUserType,
+    userInfoStruct,
+    usersDataStruct
 } from "../share/utils/attTypeDefine";
 
-const rl = readline.createInterface({input, output});
+// const rl = readline.createInterface({input, output});
 
 let users: usersDataStruct = {
     count: 0,
@@ -53,27 +55,29 @@ function onConnection(socket: net.Socket) {
     });
 
     socket.on('error', (err) => {
-        console.info(`${userMapping.get(socket)} 断开连接`);
-        let user = userMapping.get(socket);
-        if (user && user.location instanceof room && user.location.users.size <= 0) {
-            destroyRoom(user.location);
-        }
-        removeUser(socket);
+        console.error(err);
+        onClose();
     });
 
-    socket.on('close', () => {
-        const user = userMapping.get(socket);
-        console.info(`${user? user.username : socket} 已离开聊天室`);
-        if (user && user.location instanceof room && user.location.users.size <= 0) {
+    socket.on('close', onClose);
+
+    function onClose() {
+        const user = removeUser(socket);
+        if (!user) {
+            console.error(`onClose: ${socket} 未找到!`);
+            return;
+        }
+        console.info(`${user.username} 已离开聊天室`);
+        if (user.location instanceof room && user.location.users.size <= 0) {
+            console.log('开始删除房间')
             destroyRoom(user.location);
         }
-        removeUser(socket);
-    });
+    }
 
     // todo: 服务器输入指令
-    rl.on('line', (input) => {
-
-    });
+    // rl.on('line', (input) => {
+    //
+    // });
 }
 
 function handleData(_data: string, socket: net.Socket) {
@@ -144,7 +148,8 @@ function handleData(_data: string, socket: net.Socket) {
         let userdata: userInfoStruct = {
             username: name,
             password: pwd,
-            ip: socket.remoteAddress ? socket.remoteAddress.toString() : 'null'
+            ip: socket.remoteAddress ? socket.remoteAddress.toString() : 'null',
+            type: eUserType.normal, //默认普通用户，管理员不在客户端注册
         }
         users.users.push(userdata);
         users.count++;
@@ -311,16 +316,16 @@ function broadcast(msg: string, loc?: locType, from? :userInfo)
     }
 }
 
-function removeUser(user: net.Socket): void;
-function removeUser(user: userInfo):void;
-function removeUser(expect: net.Socket | userInfo)
+function removeUser(user: net.Socket): userInfo | undefined;
+function removeUser(user: userInfo): userInfo | undefined;
+function removeUser(expect: net.Socket | userInfo): userInfo | undefined
 {
     if (userMapping.size <= 0) return;
 
     const user = (expect instanceof userInfo) ? expect : userMapping.get(expect);
     if (!user) {
         console.error(`userMapping中没有找到 ${expect} 对应的 userinfo!`);
-        return;
+        return undefined;
     }
 
     const loc = user.location;
@@ -328,19 +333,21 @@ function removeUser(expect: net.Socket | userInfo)
     loc.users.delete(user);
     // delete user from userMapping
     userMapping.delete(user.socket);
+
+    return user;
 }
 
-function lookupAllUser(roomId?: string) {
-    if (roomId !== undefined) {
-        console.info('要查询的roomId:', roomId);
-    } else {
-        output.write('[\n');
-        userMapping.forEach((name,socket) => {
-            output.write(`${socket.remoteAddress}:${socket.remotePort} -> ${name}`);
-        });
-        output.write(']\n');
-    }
-}
+// function lookupAllUser(roomId?: string) {
+//     if (roomId !== undefined) {
+//         console.info('要查询的roomId:', roomId);
+//     } else {
+//         output.write('[\n');
+//         userMapping.forEach((name,socket) => {
+//             output.write(`${socket.remoteAddress}:${socket.remotePort} -> ${name}`);
+//         });
+//         output.write(']\n');
+//     }
+// }
 
 function listRooms() {
     let roomListStr = 'room list: \n';
