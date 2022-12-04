@@ -58,8 +58,8 @@ function onConnect(socket: net.Socket) {
     socket.on('data', chatSysInst.onRecvData.bind(chatSysInst));
 
     socket.on('end', () => {
-        console.info('已断开连接');
-        chatSysInst.stat = false;
+        output.write('已断开连接\n');
+        // chatSysInst.stat = false;
         process.exit();
     })
 

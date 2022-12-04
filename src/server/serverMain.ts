@@ -62,21 +62,10 @@ function onConnection(socket: net.Socket) {
 
     function onClose() {
         const user = removeUser(socket);
-        if (!user) {
-            console.error(`onClose: ${socket} 未找到!`);
-            return;
-        }
-        broadcast(msgTool.toJson(eMsgType.server, `${user.username} 已离开聊天室`), user.location);
-        if (user.location instanceof room && user.location.users.size <= 0) {
-            console.log('开始删除房间')
-            destroyRoom(user.location);
+        if (user) {
+            broadcast(msgTool.toJson(eMsgType.server, `${user.username} 已离开聊天室`), user.location);
         }
     }
-
-    // todo: 服务器输入指令
-    // rl.on('line', (input) => {
-    //
-    // });
 }
 
 function handleData(_data: string, socket: net.Socket) {
@@ -108,6 +97,14 @@ function handleData(_data: string, socket: net.Socket) {
             }
             else
             {
+                // check if the user is already logged in
+                let res = searchUser(name);
+                if (res) {  // already logged in
+                    res.socket.write(msgTool.toJson(eMsgType.server, '账号已在其他地方登录！', false));
+                    // res.socket.end();
+                    removeUser(res);
+                }
+
                 // create userInfo instance
                 const _user = new userInfo(name, socket, hallIns, user.type, user.ip);
                 // add to userMapping
@@ -207,8 +204,9 @@ function handleData(_data: string, socket: net.Socket) {
                 break;
             }
             case eCommandType.logout: {
-                broadcast(msgTool.toJson(eMsgType.server, `${name} 已离开聊天室`), hallIns);
-                // 后续操作在socket的close事件中执行
+                broadcast(msgTool.toJson(eMsgType.server, `${name} 已离开聊天室`), lastLoc);
+                removeUser(socket);
+                socket.write(msgTool.toJson(eMsgType.server, '已退出登录！', false));
                 break;
             }
             case eCommandType.say: {
@@ -343,6 +341,11 @@ function removeUser(expect: net.Socket | userInfo): userInfo | undefined
     const loc = user.location;
     // delete user from room/hall
     loc.users.delete(user);
+    // check should destroy the room
+    if (loc instanceof room && loc.users.size <= 0) {
+        destroyRoom(loc);
+    }
+
     // delete user from userMapping
     userMapping.delete(user.socket);
 
@@ -357,6 +360,14 @@ function showUsers(loc: locType): string {
     }
 
     return resStr;
+}
+
+function searchUser(name: string): userInfo | undefined {
+    for (let user of userMapping.values()) {
+        if (user.username === name) {
+            return user;
+        }
+    }
 }
 
 function listRooms() {
@@ -382,11 +393,6 @@ function destroyRoom(roomIns: room) {
         roomIns.state = roomStat.destroyed;
         console.info(`${roomIns.roomId} 已销毁！`);
     },10 * 1000);
-}
-
-// todo: 指令在该场景中是否可用
-function canUseThisCmd(loc: locType, cmd: eCommandType) {
-
 }
 
 // 注意：moveUser会修改user的location

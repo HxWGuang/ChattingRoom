@@ -49,6 +49,6 @@ export class loginSys {
             arg: [], cmd: eCommandType.logout, content: ""
         }
         this.socket?.write(JSON.stringify(sendData));
-        this.socket?.setTimeout(1000);
+        // this.socket?.setTimeout(1000);
     }
 }
