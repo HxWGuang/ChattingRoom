@@ -1,4 +1,4 @@
-import {userInfo} from "../share/entity/userInfo";
+import {userInfo} from "./userInfo";
 import {eGameStat} from "../share/utils/attTypeDefine";
 
 type pm = [string, number];

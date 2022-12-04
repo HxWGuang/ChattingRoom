@@ -1,12 +1,11 @@
 import * as net from "node:net";
-import readline from "node:readline";
 import * as fs from "fs";
 // import {stdin as input, stdout as output} from 'node:process';
 import {serverInfo, userStoreLoc} from "../share/entity/serverConfig";
 import {msgTool} from "../share/utils/msgTool";
-import {room} from "../share/entity/room";
+import {room} from "./room";
 import {hall} from "./hall";
-import {userInfo} from "../share/entity/userInfo";
+import {userInfo} from "./userInfo";
 import {rollGameMgr} from "./rollGameMgr";
 import {
     dataBodyStruct,
@@ -34,8 +33,8 @@ let intervalTimer: NodeJS.Timer | undefined;
 
 type locType = hall | room;
 
-let server = net.createServer(onConnection).listen(serverInfo.port, serverInfo.host, () => {
-    console.log('正在监听',server.address());
+let serverMain = net.createServer(onConnection).listen(serverInfo.port, serverInfo.host, () => {
+    console.log('正在监听',serverMain.address());
 
     let sourceData = fs.readFileSync(userStoreLoc);
     if (sourceData.toString()) {
@@ -67,7 +66,7 @@ function onConnection(socket: net.Socket) {
             console.error(`onClose: ${socket} 未找到!`);
             return;
         }
-        console.info(`${user.username} 已离开聊天室`);
+        broadcast(msgTool.toJson(eMsgType.server, `${user.username} 已离开聊天室`), user.location);
         if (user.location instanceof room && user.location.users.size <= 0) {
             console.log('开始删除房间')
             destroyRoom(user.location);
@@ -110,12 +109,13 @@ function handleData(_data: string, socket: net.Socket) {
             else
             {
                 // create userInfo instance
-                const _user = new userInfo(name, socket, hallIns);
+                const _user = new userInfo(name, socket, hallIns, user.type, user.ip);
                 // add to userMapping
                 userMapping.set(socket, _user);
                 // add to hall
                 hallIns.addUser(_user);
                 broadcast(msgTool.toJson(eMsgType.server, `${name} 已进入聊天室`), hallIns);
+                socket.write(msgTool.toJson(eMsgType.server, listRooms()));
             }
         }
     }
@@ -136,14 +136,6 @@ function handleData(_data: string, socket: net.Socket) {
             return;
         }
 
-        const user = new userInfo(name, socket, hallIns);
-
-        // add to userMapping
-        userMapping.set(socket, user);
-
-        // add to hall
-        hallIns.addUser(user);
-
         // write to file
         let userdata: userInfoStruct = {
             username: name,
@@ -155,9 +147,8 @@ function handleData(_data: string, socket: net.Socket) {
         users.count++;
         fs.writeFile(userStoreLoc, JSON.stringify(users), ()=> {
             console.info('已写入用户数据');
+            socket.write(msgTool.toJson(eMsgType.server, '注册成功！'));
         });
-
-        broadcast(msgTool.toJson(eMsgType.server, `${name} 已进入聊天室`), hallIns);
     }
     else // 其他指令
     {
@@ -183,8 +174,8 @@ function handleData(_data: string, socket: net.Socket) {
                 broadcast(msgTool.toJson(eMsgType.server,`${name} 已进入房间：${roomIns.roomId}`), user.location);
                 break;
             }
-            case eCommandType.list: {
-                // list all active rooms
+            case eCommandType.refresh: {
+                // refresh all active rooms
                 const roomList = listRooms();
                 socket.write(msgTool.toJson(eMsgType.server, roomList));
                 break;
@@ -206,6 +197,7 @@ function handleData(_data: string, socket: net.Socket) {
                 // leave a room back to hall
                 broadcast(msgTool.toJson(eMsgType.server,`${name} 已离开房间`), lastLoc, user);
                 moveUser(user, lastLoc, hallIns);
+                socket.write(msgTool.toJson(eMsgType.server, listRooms()));
 
                 // should destroy room?
                 if (lastLoc instanceof room && lastLoc.userCount <= 0) {
@@ -264,6 +256,26 @@ function handleData(_data: string, socket: net.Socket) {
                             //     onGamTimerDone(lastLoc);
                             // },10 * 1000);
                         }
+                    }
+                }
+                break;
+            }
+            case eCommandType.list: {
+                if (user.type === eUserType.admin) {
+                    socket.write(msgTool.toJson(eMsgType.server, showUsers(lastLoc)));
+                }
+                break;
+            }
+            case eCommandType.kick: {
+                if (user.type === eUserType.admin) {
+                    const kickUser = lastLoc.searchUser(data.arg[0]);
+                    if (kickUser) {
+                        console.info(`准备踢掉用户：${kickUser.username}`);
+                        moveUser(kickUser,lastLoc,hallIns);
+                        broadcast(msgTool.toJson(eMsgType.server,`${kickUser.username} 已离开房间`), lastLoc);
+                        kickUser.socket.write(msgTool.toJson(eMsgType.server, listRooms()));
+                    } else {
+                        socket.write(msgTool.toJson(eMsgType.server, `未找到用户：${data.arg[0]}`));
                     }
                 }
                 break;
@@ -337,17 +349,15 @@ function removeUser(expect: net.Socket | userInfo): userInfo | undefined
     return user;
 }
 
-// function lookupAllUser(roomId?: string) {
-//     if (roomId !== undefined) {
-//         console.info('要查询的roomId:', roomId);
-//     } else {
-//         output.write('[\n');
-//         userMapping.forEach((name,socket) => {
-//             output.write(`${socket.remoteAddress}:${socket.remotePort} -> ${name}`);
-//         });
-//         output.write(']\n');
-//     }
-// }
+function showUsers(loc: locType): string {
+    let resStr = 'user list: \n';
+
+    for (let user of loc.users) {
+        resStr += `\t[ 用户名：${user.username}  ip：${user.ip} ]\n`;
+    }
+
+    return resStr;
+}
 
 function listRooms() {
     let roomListStr = 'room list: \n';
@@ -375,7 +385,7 @@ function destroyRoom(roomIns: room) {
 }
 
 // todo: 指令在该场景中是否可用
-function canUserThisCmd(loc: locType, cmd: eCommandType) {
+function canUseThisCmd(loc: locType, cmd: eCommandType) {
 
 }
 

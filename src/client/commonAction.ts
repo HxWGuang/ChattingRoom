@@ -15,7 +15,7 @@ export class commonAction {
 
     init() {
         this.inputHandlerInst.register(eCommandType.create, this.create.bind(this));
-        this.inputHandlerInst.register(eCommandType.list, this.list.bind(this));
+        this.inputHandlerInst.register(eCommandType.refresh, this.refresh.bind(this));
         this.inputHandlerInst.register(eCommandType.join, this.join.bind(this));
         this.inputHandlerInst.register(eCommandType.leave, this.leave.bind(this));
         this.inputHandlerInst.register(eCommandType.roll, this.roll.bind(this));
@@ -28,9 +28,9 @@ export class commonAction {
         this.socket?.write(JSON.stringify(sendData));
     }
 
-    list() {
+    refresh() {
         let sendData: dataBodyStruct = {
-            arg: [], cmd: eCommandType.list, content: ""
+            arg: [], cmd: eCommandType.refresh, content: ""
         }
         this.socket?.write(JSON.stringify(sendData));
     }

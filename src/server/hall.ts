@@ -1,4 +1,4 @@
-import {userInfo} from "../share/entity/userInfo";
+import {userInfo} from "./userInfo";
 import * as net from "net";
 
 export class hall {

@@ -7,13 +7,15 @@ import {inputHandler} from "./inputHandler";
 import {chatSys} from "./chatSys";
 import {loginSys} from "./loginSys";
 import {commonAction} from "./commonAction";
+import {gmAction} from "./gmAction";
 
 const rl = readline.createInterface({input, output});
 
 const inputHandlerInst = new inputHandler();
 const loginSysInst = new loginSys(inputHandlerInst);
 const chatSysInst = new chatSys(inputHandlerInst);
-const commAction = new commonAction(inputHandlerInst);
+const commActionInst = new commonAction(inputHandlerInst);
+const gmActionInst = new gmAction(inputHandlerInst);
 
 const socket = net.connect(serverInfo.port, serverInfo.host, () => {
     socket.setEncoding('utf-8');
@@ -26,7 +28,8 @@ function onConnect(socket: net.Socket) {
     // init
     loginSysInst.socket = socket;
     chatSysInst.socket = socket;
-    commAction.socket = socket;
+    commActionInst.socket = socket;
+    gmActionInst.socket = socket;
 
     output.write('登录或注册：\n');
 

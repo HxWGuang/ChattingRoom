@@ -1,5 +1,5 @@
-import {hall} from "../../server/hall";
-import {eRoomState} from "../utils/attTypeDefine";
+import {hall} from "./hall";
+import {eRoomState} from "../share/utils/attTypeDefine";
 
 export class room extends hall{
     readonly roomId: string;
